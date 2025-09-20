@@ -388,7 +388,7 @@ function App() {
             <div className={styles.headerRight}>
               <ShortcutsHelp />
               <CheckUpdate />
-              <Tooltip
+              {/* <Tooltip
                 content={<>查看源代码 (本项目<Caption1Stronger>不会上传</Caption1Stronger>您的隐私视频，并且接受公开的代码审查)</>}
                 relationship="label"
               >
@@ -404,8 +404,8 @@ function App() {
                     </a>
                   }
                 />
-              </Tooltip>
-              <Tooltip content={<>问题反馈</>} relationship="label">
+              </Tooltip> */}
+              {/* <Tooltip content={<>问题反馈</>} relationship="label">
                 <Button
                   icon={
                     <a
@@ -418,7 +418,7 @@ function App() {
                     </a>
                   }
                 />
-              </Tooltip>
+              </Tooltip> */}
             </div>
           </div>
           <div className={styles.player}>
