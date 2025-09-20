@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import cln from 'classnames'
 import {
   makeStyles,
@@ -13,7 +13,7 @@ import {
   Badge,
 } from '@fluentui/react-components'
 import {
-  Record24Regular, Code24Regular, BookQuestionMark24Regular,
+  Record24Regular, Code24Regular, BookQuestionMark24Regular, Grid24Regular, VideoClip24Regular,
 } from '@fluentui/react-icons'
 import Player from './components/player'
 import DirectoryAccess from './components/directory-access'
@@ -21,6 +21,7 @@ import FfmpegTerminal from './components/ffmpeg-terminal'
 import FfmpegExport from './components/ffmpeg-export'
 import FsSystem from './components/fs-system'
 import CheckUpdate from './components/check-update'
+import ShortcutsHelp from './components/shortcuts-help'
 import { TypeEnum, type ModelState, type OriginVideo } from './model'
 
 const useStyles = makeStyles({
@@ -69,7 +70,7 @@ const useStyles = makeStyles({
     columnGap: '12px',
     color: tokens.colorNeutralForeground1,
     ':hover': {
-      color: tokens.colorCompoundBrandStrokePressed,
+      color: '#000000',
     },
   },
   menuItemIsActive: {
@@ -88,6 +89,7 @@ const useStyles = makeStyles({
     display: 'flex',
     justifyContent: 'space-between',
     ...shorthands.padding('20px'),
+    position: 'relative',
   },
   headerLeft: {
     ...shorthands.gap('10px'),
@@ -140,23 +142,119 @@ function App() {
     list: [],
     events: [],
   })
+  const playerRef = useRef<any>(null)
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [playbackRate, setPlaybackRate] = useState(1)
+  const [isGridLayout, setIsGridLayout] = useState(false)
+  
+  
   useEffect(() => {
-    document.onkeydown = (e: KeyboardEvent) => {
-      if (e.code == 'Space') {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 阻止某些按键的默认行为
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Delete', 'Backspace'].includes(e.code)) {
         e.preventDefault()
       }
+      
+      const videoList = state.list
+        .filter(({ type }) => type === filterType || filterType === TypeEnum.所有)
+        .sort((a, b) => b.time - a.time)
+      
+      switch (e.code) {
+        case 'Space':
+        case 'Enter':
+          // 播放/暂停切换，或播放选中的视频
+          if (state.current && playerRef.current) {
+            playerRef.current.togglePlayPause()
+          } else if (videoList.length > 0) {
+            onSelectVideo(videoList[selectedIndex]?.time)
+          }
+          break
+          
+        case 'KeyW':
+          // 切换到前摄像头
+          if (playerRef.current) {
+            playerRef.current.selectCamera(0) // 前
+          }
+          break
+          
+        case 'KeyS':
+          // 切换到后摄像头
+          if (playerRef.current) {
+            playerRef.current.selectCamera(1) // 后
+          }
+          break
+          
+        case 'KeyA':
+          // 切换到左摄像头
+          if (playerRef.current) {
+            playerRef.current.selectCamera(2) // 左
+          }
+          break
+          
+        case 'KeyD':
+          // 切换到右摄像头
+          if (playerRef.current) {
+            playerRef.current.selectCamera(3) // 右
+          }
+          break
+          
+        case 'ArrowLeft':
+          // 后退3秒
+          if (playerRef.current) {
+            playerRef.current.seekRelative(-3)
+          }
+          break
+          
+        case 'ArrowRight':
+          // 前进3秒
+          if (playerRef.current) {
+            playerRef.current.seekRelative(3)
+          }
+          break
+          
+        case 'Delete':
+        case 'Backspace':
+          // 删除当前视频 - 兼容Mac（Backspace）和Windows（Delete）
+          if (playerRef.current) {
+            playerRef.current.deleteFiles()
+          }
+          break
+          
+        case 'ArrowUp':
+          // 上一个视频
+          if (videoList.length > 0) {
+            const newIndex = Math.max(0, selectedIndex - 1)
+            setSelectedIndex(newIndex)
+            onSelectVideo(videoList[newIndex]?.time)
+          }
+          break
+          
+        case 'ArrowDown':
+          // 下一个视频
+          if (videoList.length > 0) {
+            const newIndex = Math.min(videoList.length - 1, selectedIndex + 1)
+            setSelectedIndex(newIndex)
+            onSelectVideo(videoList[newIndex]?.time)
+          }
+          break
+          
+        default:
+          break
+      }
     }
+    
+    document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.onkeydown = null
+      document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [])
+  }, [state, filterType, selectedIndex])
   function onFileSystemAccess(videos: OriginVideo[]) {
     setState({
       ...state,
       list: videos,
     })
   }
-  async function onSelectVideo(value: number) {
+  const onSelectVideo = useCallback(async (value: number) => {
     if (state.current) {
       const {
         src_f, src_b, src_l, src_r,
@@ -168,6 +266,15 @@ function App() {
     }
     const origin = state.list.find(({ time }) => time === value)
     if (!origin) return
+    
+    // 更新选中的索引
+    const videoList = state.list
+      .filter(({ type }) => type === filterType || filterType === TypeEnum.所有)
+      .sort((a, b) => b.time - a.time)
+    const index = videoList.findIndex(({ time }) => time === value)
+    if (index !== -1) {
+      setSelectedIndex(index)
+    }
     const [
       src_f_file,
       src_b_file,
@@ -197,7 +304,22 @@ function App() {
         src_r_path: origin.src_r.path,
       },
     })
-  }
+  }, [state])
+  
+  // 自动选中第一个视频
+  useEffect(() => {
+    if (state.list.length > 0 && !state.current) {
+      const sortedVideos = state.list
+        .filter(({ type }) => type === filterType || filterType === TypeEnum.所有)
+        .sort((a, b) => b.time - a.time)
+      
+      if (sortedVideos.length > 0) {
+        setSelectedIndex(0)
+        onSelectVideo(sortedVideos[0].time)
+      }
+    }
+  }, [state.list, filterType, state.current, onSelectVideo])
+  
   const videoList = state.list
     .filter(({ type }) => type === filterType || filterType === TypeEnum.所有)
     .sort((a, b) => b.time - a.time)
@@ -255,7 +377,16 @@ function App() {
                 ? <FfmpegExport video={state.current} />
                 : <FfmpegTerminal video={state.current} />}
             </div>
+            <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
+              <Tooltip content={<>切换布局模式</>} relationship="label">
+                <Button
+                  icon={isGridLayout ? <VideoClip24Regular /> : <Grid24Regular />}
+                  onClick={() => setIsGridLayout(!isGridLayout)}
+                />
+              </Tooltip>
+            </div>
             <div className={styles.headerRight}>
+              <ShortcutsHelp />
               <CheckUpdate />
               <Tooltip
                 content={<>查看源代码 (本项目<Caption1Stronger>不会上传</Caption1Stronger>您的隐私视频，并且接受公开的代码审查)</>}
@@ -291,7 +422,14 @@ function App() {
             </div>
           </div>
           <div className={styles.player}>
-            <Player key={state.current?.time} video={state.current} />
+            <Player
+              isGridLayout={isGridLayout}
+              key={state.current?.time}
+              playbackRate={playbackRate}
+              ref={playerRef}
+              video={state.current}
+              onPlaybackRateChange={setPlaybackRate}
+            />
           </div>
         </div>
       </div>

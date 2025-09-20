@@ -3,3 +3,82 @@ body, html {
   padding: 0;
   min-width: 1280px;
 }
+
+/* 自定义Slider样式 - 修正进度条逻辑 */
+.fui-Slider__thumb {
+  background-color: #000000 !important;
+  border-color: #000000 !important;
+}
+
+/* 已播放的部分（track）用黑色 */
+.fui-Slider__track {
+  background-color: #000000 !important;
+}
+
+/* 未播放的部分（rail）用灰色 */
+.fui-Slider__rail {
+  background-color: #cccccc !important;
+}
+
+.fui-Slider:hover .fui-Slider__thumb {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+}
+
+.fui-Slider:hover .fui-Slider__track {
+  background-color: #333333 !important;
+}
+
+/* 自定义Tab指示器样式 */
+.fui-TabList .fui-Tab__content::after {
+  background-color: #000000 !important;
+}
+
+/* 自定义Radio按钮样式 */
+.fui-Radio__indicator {
+  border-color: #000000 !important;
+}
+
+.fui-Radio__indicator::after {
+  background-color: #000000 !important;
+}
+
+/* 自定义Button按钮样式 - 所有按钮都使用黑色主题 */
+.fui-Button.fui-Button--appearance-primary {
+  background-color: #000000 !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.fui-Button.fui-Button--appearance-primary:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+  color: #ffffff !important;
+}
+
+.fui-Button.fui-Button--appearance-primary:active {
+  background-color: #000000 !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.fui-Button.fui-Button--appearance-outline {
+  background-color: #000000 !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.fui-Button.fui-Button--appearance-outline:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+  color: #ffffff !important;
+}
+
+.fui-Button.fui-Button--appearance-transparent {
+  color: #000000 !important;
+}
+
+.fui-Button.fui-Button--appearance-transparent:hover {
+  background-color: #f0f0f0 !important;
+  color: #000000 !important;
+}
