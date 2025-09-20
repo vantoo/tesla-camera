@@ -30,6 +30,7 @@ export interface ExportTaskType {
 
 export interface FileData {
   get(): Promise<{ url: string; name: string }>
+  remove(): Promise<void>
   name: string
   path: string
 }
@@ -44,6 +45,8 @@ export interface OriginVideo {
   src_r: FileData
   src_l: FileData
   event?: number
+  dirHandle?: FileSystemDirectoryHandle
+  parentDirHandle?: FileSystemDirectoryHandle
 }
 
 export interface OriginFSVideo {
@@ -86,6 +89,8 @@ export interface VideoFile {
   fs: FileSystemFileHandle
   path: string
   dir: string
+  dirHandle?: FileSystemDirectoryHandle
+  parentDirHandle?: FileSystemDirectoryHandle
 }
 
 export interface EventJson {

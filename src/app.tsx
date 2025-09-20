@@ -212,10 +212,21 @@ function App() {
             playerRef.current.seekRelative(3)
           }
           break
-          
-        case 'Delete':
         case 'Backspace':
-          // 删除当前视频 - 兼容Mac（Backspace）和Windows（Delete）
+          // command + backspace 删除文件夹
+          if (e.metaKey) {
+            if (state.current) {
+              handleDeleteFolder(state.current)
+            }
+            break
+          }
+          // 删除当前视频
+          if (playerRef.current) {
+            playerRef.current.deleteFiles()
+          }
+          break
+        case 'Delete':
+          // 删除当前视频
           if (playerRef.current) {
             playerRef.current.deleteFiles()
           }
@@ -330,6 +341,11 @@ function App() {
     if (!origin)
       return
 
+    const currentVideoList = state.list
+      .filter(({ type }) => type === filterType || filterType === TypeEnum.所有)
+      .sort((a, b) => b.time - a.time)
+    const deletedVideoIndex = currentVideoList.findIndex(item => item.time === video.time)
+
     try {
       console.log('开始删除文件 (Web API):', origin)
       await Promise.all([
@@ -341,15 +357,132 @@ function App() {
       console.log('文件删除成功 (Web API)')
 
       const newList = state.list.filter(item => item.time !== video.time)
-      setState({
-        ...state,
-        list: newList,
-        current: undefined,
-      })
+      const newSortedVideoList = newList
+        .filter(({ type }) => type === filterType || filterType === TypeEnum.所有)
+        .sort((a, b) => b.time - a.time)
+
+      if (newSortedVideoList.length === 0) {
+        setState({
+          ...state,
+          list: newList,
+          current: undefined,
+        })
+      } else {
+        const nextIndex = Math.min(deletedVideoIndex, newSortedVideoList.length - 1)
+        const nextVideoToSelect = newSortedVideoList[nextIndex]
+
+        // Manually trigger the logic of onSelectVideo to avoid stale state
+        const [
+          src_f_file,
+          src_b_file,
+          src_l_file,
+          src_r_file,
+        ] = await Promise.all([
+          nextVideoToSelect.src_f.get(),
+          nextVideoToSelect.src_b.get(),
+          nextVideoToSelect.src_l.get(),
+          nextVideoToSelect.src_r.get(),
+        ])
+
+        setState(prevState => ({
+          ...prevState,
+          list: newList,
+          current: {
+            ...nextVideoToSelect,
+            src_f: src_f_file.url,
+            src_f_name: src_f_file.name,
+            src_f_path: nextVideoToSelect.src_f.path,
+            src_b: src_b_file.url,
+            src_b_name: src_b_file.name,
+            src_b_path: nextVideoToSelect.src_b.path,
+            src_l: src_l_file.url,
+            src_l_name: src_l_file.name,
+            src_l_path: nextVideoToSelect.src_l.path,
+            src_r: src_r_file.url,
+            src_r_name: src_r_file.name,
+            src_r_path: nextVideoToSelect.src_r.path,
+          },
+        }))
+        setSelectedIndex(nextIndex)
+      }
+
       alert('视频文件已成功删除！')
+
+      // 检查文件夹是否为空
+      if (origin.dirHandle) {
+        let hasMp4Files = false
+        const remainingFiles = []
+        for await (const entry of origin.dirHandle.values()) {
+          remainingFiles.push(entry.name)
+          if (entry.name.endsWith('.mp4')) {
+            hasMp4Files = true
+            break
+          }
+        }
+
+        if (!hasMp4Files) {
+          const remainingFilesList = remainingFiles.join('\n')
+          const confirmation = window.confirm(
+            `当前文件夹已无MP4文件，剩余文件如下：\n\n${remainingFilesList}\n\n是否删除当前文件夹？`
+          )
+          if (confirmation) {
+            try {
+              if (origin.parentDirHandle && origin.dirHandle) {
+                await origin.parentDirHandle.removeEntry(origin.dirHandle.name, { recursive: true })
+                alert('文件夹已成功删除！')
+                // 从列表中移除与已删除文件夹相关的所有视频
+                setState(prevState => {
+                  const newList = prevState.list.filter(item => item.dirHandle?.name !== origin.dirHandle?.name)
+                  return {
+                    ...prevState,
+                    list: newList,
+                  }
+                })
+              } else {
+                alert('无法获取父目录句柄，无法自动删除。请手动删除。')
+              }
+            } catch (e) {
+              console.error('删除文件夹时出错:', e)
+              alert(`删除文件夹时出错: ${e}`)
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('使用 Web API 删除文件时出错:', error)
       alert(`删除文件时出错: ${error}`)
+    }
+  }
+
+  const handleDeleteFolder = async (video: Video) => {
+    const origin = state.list.find(({ time }) => time === video.time)
+    if (!origin || !origin.dirHandle || !origin.parentDirHandle) {
+      alert('无法获取文件夹信息，无法删除。')
+      return
+    }
+
+    const confirmation = window.confirm(
+      `您确定要删除整个文件夹 "${origin.dirHandle.name}" 吗？\n\n此操作会删除该文件夹下的所有文件，且不可恢复！`
+    )
+
+    if (confirmation) {
+      try {
+        await origin.parentDirHandle.removeEntry(origin.dirHandle.name, { recursive: true })
+        alert('文件夹已成功删除！')
+
+        setState(prevState => {
+          const newList = prevState.list.filter(item => item.dirHandle?.name !== origin.dirHandle?.name)
+          const newCurrent = prevState.current?.dir === origin.dir ? undefined : prevState.current
+          return {
+            ...prevState,
+            list: newList,
+            current: newCurrent,
+          }
+        })
+      } catch (e) {
+        console.error('删除文件夹时出错:', e)
+        alert(`删除文件夹时出错: ${e}`)
+      }
     }
   }
 
@@ -459,6 +592,7 @@ function App() {
               ref={playerRef}
               video={state.current}
               onDelete={handleDelete}
+              onDeleteFolder={handleDeleteFolder}
               onPlaybackRateChange={setPlaybackRate}
             />
           </div>

@@ -33,7 +33,7 @@ const useStyles = makeStyles({
   video: {
     width: 'auto',
     height: 'auto',
-    maxHeight: '60vh',
+    maxHeight: 'calc(100vh - 180px)', // 统一使用calc，预留180px给控制栏和边距
     aspectRatio: '4 / 3',
     backgroundColor: tokens.colorNeutralBackground5Selected,
   },
@@ -102,7 +102,7 @@ const useStyles = makeStyles({
     ...shorthands.borderRadius('8px'),
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     minWidth: '200px',
-    height: '60vh',
+    height: 'calc(100vh - 180px)', // 统一高度设置
     justifyContent: 'flex-start',
     flexShrink: 0,
   },
@@ -115,7 +115,7 @@ const useStyles = makeStyles({
     ...shorthands.borderRadius('8px'),
     border: `1px solid ${tokens.colorNeutralStroke2}`,
     minWidth: '200px',
-    height: '60vh',
+    height: 'calc(100vh - 180px)', // 统一高度设置
     justifyContent: 'flex-start',
   },
   speedControl: {
@@ -158,12 +158,16 @@ const useStyles = makeStyles({
     zIndex: 1,
     flexGrow: 1,
     minHeight: 0, // Add this for same reason as above
+    maxHeight: 'calc(100vh - 240px)', // 统一高度设置，预留240px给时间显示和控制栏
+    aspectRatio: '16 / 9', // 添加宽高比约束
   },
   gridVideo: {
     width: '100%',
     height: '100%',
     backgroundColor: tokens.colorNeutralBackground5Selected,
     objectFit: 'contain',
+    minHeight: 0,
+    maxHeight: 'calc((100vh - 240px) / 2 - 5px)', // 动态计算每个视频的最大高度，减去间距
   },
   gridVideoLabel: {
     position: 'absolute',
@@ -225,6 +229,7 @@ interface PlayerProps {
   onPlaybackRateChange?: (rate: number) => void
   isGridLayout?: boolean
   onDelete?: (video: Video) => void
+  onDeleteFolder?: (video: Video) => void
 }
 
 function getSrc(camera: CameraEnum, video: Video): string {
@@ -300,7 +305,7 @@ const Player = forwardRef<any, React.PropsWithChildren<PlayerProps>>((props, ref
   function onTimeupdate() {
     if (!videoRef.current) return
     if (videoRef.current.currentTime >= videoRef.current.duration) {
-      setCurrentTime(0)
+      setCurrentTime(videoRef.current.duration)
       videoRef.current.pause()
     } else {
       setCurrentTime(videoRef.current.currentTime)
@@ -469,8 +474,12 @@ const Player = forwardRef<any, React.PropsWithChildren<PlayerProps>>((props, ref
       }
     },
     seekRelative: (seconds: number) => {
+      // 如果视频已经播放完毕，则不允许快进
+      if (seconds > 0 && currentTime >= duration) {
+        return
+      }
       const newTime = Math.max(0, Math.min(duration, currentTime + seconds))
-      
+
       // 如果快进到视频末尾，设置到末尾位置并暂停
       if (newTime >= duration) {
         if (isGridLayout) {
@@ -534,8 +543,20 @@ const Player = forwardRef<any, React.PropsWithChildren<PlayerProps>>((props, ref
                 
                 {/* 文件夹路径 */}
                 <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: tokens.colorNeutralForeground1 }}>
-                    📁 文件夹
+                  <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: tokens.colorNeutralForeground1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>📁 文件夹</span>
+                    <Button
+                      appearance="outline"
+                      icon={<Delete24Regular />}
+                      style={{ 
+                        backgroundColor: '#000000',
+                        color: '#ffffff',
+                        borderColor: '#000000'
+                      }}
+                      onClick={() => props.onDeleteFolder?.(props.video!)}
+                    >
+                      删除文件夹
+                    </Button>
                   </div>
                   <div style={{ fontSize: '11px', color: tokens.colorNeutralForeground2, fontFamily: 'monospace', wordBreak: 'break-all', lineHeight: '1.3' }}>
                     {(() => {
