@@ -14,16 +14,15 @@ interface DirectoryAccessProps {
   onAccess: (accessFile: OriginVideo[]) => void
 }
 
-async function getDirFiles(fs: FileSystemDirectoryHandle, path = '') {
+async function getDirFiles(dirHandle: FileSystemDirectoryHandle, path = '') {
   const files: VideoFile[] = []
-  const fsHandles = await fs.values()
-  for await (const fsHandle of fsHandles) {
-    const currentPath = `${path}/${fsHandle.name}`
-    if (fsHandle.kind === 'file') {
-      files.push({ fs: fsHandle, path: currentPath, dir: `${path}/` })
+  for await (const [name, handle] of dirHandle.entries()) {
+    const currentPath = `${path}/${name}`
+    if (handle.kind === 'file') {
+      files.push({ fs: handle, path: currentPath, dir: path, dirHandle })
     }
-    if (fsHandle.kind === 'directory') {
-      files.push(...await getDirFiles(fsHandle, currentPath))
+    if (handle.kind === 'directory') {
+      files.push(...await getDirFiles(handle, currentPath))
     }
   }
   return files
@@ -58,7 +57,7 @@ function nameToTitle(name: string): string {
 function convertFiles(videoFiles: VideoFile[]): OriginVideo[] {
   const reg = /^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}-.+/
   const videos: Record<string, Partial<OriginVideo>> = {}
-  videoFiles.forEach(({ fs, path, dir }) => {
+  videoFiles.forEach(({ fs, path, dir, dirHandle }) => {
     if (!reg.test(fs.name)) {
       return
     }
@@ -79,6 +78,10 @@ function convertFiles(videoFiles: VideoFile[]): OriginVideo[] {
           url: URL.createObjectURL(await fs.getFile()),
           name,
         }
+      },
+      remove: async () => {
+        if (!dirHandle) return
+        return dirHandle.removeEntry(fs.name)
       },
       name,
       path,

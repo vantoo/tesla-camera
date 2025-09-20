@@ -224,6 +224,7 @@ interface PlayerProps {
   playbackRate?: number
   onPlaybackRateChange?: (rate: number) => void
   isGridLayout?: boolean
+  onDelete?: (video: Video) => void
 }
 
 function getSrc(camera: CameraEnum, video: Video): string {
@@ -259,6 +260,7 @@ const Player = forwardRef<any, React.PropsWithChildren<PlayerProps>>((props, ref
   const [duration, setDuration] = useState(0)
   const currentPlaybackRate = props.playbackRate || 1
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const deleteButtonRef = useRef<HTMLButtonElement>(null)
   const isGridLayout = props.isGridLayout || false
   const videoRef = useRef<HTMLVideoElement>(null)
   const gridVideoRefs = useRef<{
@@ -392,19 +394,22 @@ const Player = forwardRef<any, React.PropsWithChildren<PlayerProps>>((props, ref
     setShowDeleteConfirm(true)
   }
   function confirmDelete() {
-    // 这里可以添加实际的删除逻辑
-    console.log('删除文件:', {
-      前: props.video?.src_f_name,
-      后: props.video?.src_b_name,
-      左: props.video?.src_l_name,
-      右: props.video?.src_r_name,
-    })
+    if (props.onDelete && props.video) {
+      props.onDelete(props.video)
+    }
     setShowDeleteConfirm(false)
-    // 可以调用父组件的回调来处理删除
   }
   function cancelDelete() {
     setShowDeleteConfirm(false)
   }
+
+  React.useEffect(() => {
+    if (showDeleteConfirm) {
+      setTimeout(() => {
+        deleteButtonRef.current?.focus()
+      }, 100)
+    }
+  }, [showDeleteConfirm])
   
   
   function syncAllVideos() {
@@ -736,9 +741,11 @@ const Player = forwardRef<any, React.PropsWithChildren<PlayerProps>>((props, ref
                         <Button appearance="secondary" onClick={cancelDelete}>
                           取消
                         </Button>
-                        <Button 
-                          appearance="primary" 
-                          style={{ 
+                        <Button
+                          autoFocus
+                          appearance="primary"
+                          ref={deleteButtonRef}
+                          style={{
                             backgroundColor: '#000000',
                             borderColor: '#000000'
                           }}

@@ -1,3 +1,4 @@
+import { fs } from '@tauri-apps/api'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import cln from 'classnames'
 import {
@@ -22,7 +23,7 @@ import FfmpegExport from './components/ffmpeg-export'
 import FsSystem from './components/fs-system'
 import CheckUpdate from './components/check-update'
 import ShortcutsHelp from './components/shortcuts-help'
-import { TypeEnum, type ModelState, type OriginVideo } from './model'
+import { TypeEnum, type ModelState, type OriginVideo, type Video } from './model'
 
 const useStyles = makeStyles({
   root: {
@@ -323,6 +324,35 @@ function App() {
   const videoList = state.list
     .filter(({ type }) => type === filterType || filterType === TypeEnum.所有)
     .sort((a, b) => b.time - a.time)
+
+  async function handleDelete(video: Video) {
+    const origin = state.list.find(({ time }) => time === video.time)
+    if (!origin)
+      return
+
+    try {
+      console.log('开始删除文件 (Web API):', origin)
+      await Promise.all([
+        origin.src_f.remove(),
+        origin.src_b.remove(),
+        origin.src_l.remove(),
+        origin.src_r.remove(),
+      ])
+      console.log('文件删除成功 (Web API)')
+
+      const newList = state.list.filter(item => item.time !== video.time)
+      setState({
+        ...state,
+        list: newList,
+        current: undefined,
+      })
+      alert('视频文件已成功删除！')
+    } catch (error) {
+      console.error('使用 Web API 删除文件时出错:', error)
+      alert(`删除文件时出错: ${error}`)
+    }
+  }
+
   return (
     <>
       <div className={styles.root}>
@@ -428,6 +458,7 @@ function App() {
               playbackRate={playbackRate}
               ref={playerRef}
               video={state.current}
+              onDelete={handleDelete}
               onPlaybackRateChange={setPlaybackRate}
             />
           </div>
